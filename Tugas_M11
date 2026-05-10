@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGIS DIY — WMS & WFS Explorer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; display: flex; height: 100vh; }
+        #map { flex: 1; }
+        .sidebar { width: 300px; padding: 20px; background: #f8f9fa; border-left: 1px solid #ddd; overflow-y: auto; }
+        .section { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        h3 { font-size: 14px; color: #333; text-transform: uppercase; margin-bottom: 10px; }
+        .btn { width: 100%; padding: 8px; margin-top: 5px; cursor: pointer; }
+        #info-box { font-size: 12px; background: white; padding: 10px; border: 1px solid #ccc; margin-top: 10px; min-height: 50px; }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="sidebar">
+    <h2>WebGIS DIY</h2>
+    
+    <div class="section">
+        <h3>Bonus: CQL Filter (WFS)</h3>
+        <select id="cql-filter" class="btn">
+            <option value="">Semua Wilayah</option>
+            <option value="KABUPATEN='Sleman'">Kabupaten Sleman</option>
+            <option value="KABUPATEN='Bantul'">Kabupaten Bantul</option>
+            <option value="KABUPATEN='Gunungkidul'">Kabupaten Gunungkidul</option>
+        </select>
+        <button class="btn" onclick="applyFilter()">Terapkan Filter</button>
+    </div>
+
+    <div class="section">
+        <h3>Bonus: Bandingkan WMS vs WFS</h3>
+        <button class="btn" onclick="toggleMode('wms')">Mode WMS (Raster)</button>
+        <button class="btn" onclick="toggleMode('wfs')">Mode WFS (Vektor)</button>
+        <div id="status-mode" style="font-size: 11px; color: blue; margin-top: 5px;">Mode Aktif: WMS & WFS</div>
+    </div>
+
+    <div class="section">
+        <h3>Bonus: GetFeatureInfo (WMS)</h3>
+        <p style="font-size: 11px;">Klik pada peta untuk info WMS</p>
+        <div id="info-box">Klik peta...</div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Inisialisasi Peta
+    var map = L.map('map').setView([-7.8, 110.4], 10);
+
+    // Basemap
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // URL BASE (Ganti localhost dengan link Ngrok jika ingin online)
+    var baseUrl = "http://localhost:8080/geoserver";
+
+    // 1. LAYER WMS (Minimal 1)
+    var wmsLayer = L.tileLayer.wms(baseUrl + "/DIY_WMS/wms", {
+        layers: 'DIY:Batas_administrasi_DIY_LENGKAP',
+        format: 'image/png',
+        transparent: true,
+        attribution: "GeoServer DIY"
+    }).addTo(map);
+
+    // 2. LAYER WFS (Minimal 1 + Popup Atribut)
+    var wfsLayer;
+    function loadWFS(filter = "") {
+        if (wfsLayer) map.removeLayer(wfsLayer);
+        
+        var wfsUrl = baseUrl + "/DIY/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=DIY:Batas_administrasi_DIY_LENGKAP&outputFormat=application/json";
+        if (filter) wfsUrl += "&CQL_FILTER=" + encodeURIComponent(filter);
+
+        fetch(wfsUrl)
+            .then(res => res.json())
+            .then(data => {
+                wfsLayer = L.geoJson(data, {
+                    style: { color: "blue", weight: 2, fillOpacity: 0.1 },
+                    onEachFeature: function (feature, layer) {
+                        // SYARAT: Popup atribut WFS
+                        var popupContent = "<b>Info WFS:</b><br>";
+                        for (var key in feature.properties) {
+                            popupContent += key + ": " + feature.properties[key] + "<br>";
+                        }
+                        layer.bindPopup(popupContent);
+                    }
+                }).addTo(map);
+            });
+    }
+    loadWFS();
+
+    // TOGGLE VISIBILITY (Syarat Minimal)
+    var overlays = {
+        "Layer WMS (Raster)": wmsLayer,
+        "Layer WFS (Vektor)": wfsLayer
+    };
+    L.control.layers(null, overlays).addTo(map);
+
+    // FUNGSI BONUS: CQL FILTER
+    function applyFilter() {
+        var filterValue = document.getElementById('cql-filter').value;
+        loadWFS(filterValue);
+    }
+
+    // FUNGSI BONUS: WMS vs WFS
+    function toggleMode(type) {
+        if (type === 'wms') {
+            map.addLayer(wmsLayer);
+            if (wfsLayer) map.removeLayer(wfsLayer);
+            document.getElementById('status-mode').innerHTML = "Mode Aktif: WMS (Hanya Gambar)";
+        } else {
+            map.removeLayer(wmsLayer);
+            if (wfsLayer) map.addLayer(wfsLayer);
+            document.getElementById('status-mode').innerHTML = "Mode Aktif: WFS (Interaktif)";
+        }
+    }
+
+    // FUNGSI BONUS: GetFeatureInfo (WMS)
+    map.on('click', function(e) {
+        var url = baseUrl + "/DIY_WMS/wms" +
+            "?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo" +
+            "&LAYERS=DIY:Batas_administrasi_DIY_LENGKAP" +
+            "&QUERY_LAYERS=DIY:Batas_administrasi_DIY_LENGKAP" +
+            "&INFO_FORMAT=text/html" +
+            "&BBOX=" + map.getBounds().toBBoxString() +
+            "&WIDTH=" + map.getSize().x + "&HEIGHT=" + map.getSize().y +
+            "&X=" + Math.round(map.latLngToContainerPoint(e.latlng).x) +
+            "&Y=" + Math.round(map.latLngToContainerPoint(e.latlng).y) +
+            "&SRS=EPSG:4326";
+        
+        document.getElementById('info-box').innerHTML = "<iframe src='"+url+"' style='width:100%; border:none;'></iframe>";
+    });
+
+</script>
+</body>
+</html>
