@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGIS Pasar Sleman - WMS & WFS</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="[unpkg.com](https://unpkg.com/leaflet@1.9.4/dist/leaflet.css)" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🗺️ WebGIS Pasar Kabupaten Sleman</h1>
+            <p>Visualisasi WMS dan WFS - OpenStreetMap Data</p>
+        </header>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="panel-section">
+                <h3>📍 Layer Control</h3>
+                
+                <div class="layer-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleWMS" checked>
+                        <span class="slider wms-slider"></span>
+                    </label>
+                    <span class="layer-label">
+                        <span class="legend-dot wms-dot"></span>
+                        WMS Layer (Raster)
+                    </span>
+                </div>
+
+                <div class="layer-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleWFS" checked>
+                        <span class="slider wfs-slider"></span>
+                    </label>
+                    <span class="layer-label">
+                        <span class="legend-dot wfs-dot"></span>
+                        WFS Layer (Vector)
+                    </span>
+                </div>
+
+                <div class="layer-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleOSM" checked>
+                        <span class="slider osm-slider"></span>
+                    </label>
+                    <span class="layer-label">
+                        <span class="legend-dot osm-dot"></span>
+                        OpenStreetMap Base
+                    </span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>🎨 Filter Interaktif</h3>
+                
+                <label for="filterType">Jenis Pasar:</label>
+                <select id="filterType">
+                    <option value="all">Semua Pasar</option>
+                    <option value="traditional">Pasar Tradisional</option>
+                    <option value="modern">Pasar Modern</option>
+                    <option value="fruit">Pasar Buah</option>
+                </select>
+
+                <label for="filterKecamatan">Kecamatan:</label>
+                <select id="filterKecamatan">
+                    <option value="all">Semua Kecamatan</option>
+                    <option value="depok">Depok</option>
+                    <option value="mlati">Mlati</option>
+                    <option value="godean">Godean</option>
+                    <option value="gamping">Gamping</option>
+                    <option value="sleman">Sleman</option>
+                    <option value="ngaglik">Ngaglik</option>
+                    <option value="pakem">Pakem</option>
+                    <option value="cangkringan">Cangkringan</option>
+                </select>
+            </div>
+
+            <div class="panel-section stats-panel">
+                <h3>📊 Statistik</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Total Pasar:</span>
+                    <span class="stat-value" id="totalPasar">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Pasar Terfilter:</span>
+                    <span class="stat-value" id="filteredPasar">0</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>ℹ️ Perbandingan WMS vs WFS</h3>
+                <div class="comparison-box">
+                    <div class="compare-item wms-compare">
+                        <strong>WMS (Web Map Service)</strong>
+                        <ul>
+                            <li>Menampilkan gambar raster</li>
+                            <li>Ringan di browser</li>
+                            <li>Tidak bisa diklik langsung</li>
+                            <li>Warna: <span class="color-box wms-color"></span> Biru</li>
+                        </ul>
+                    </div>
+                    <div class="compare-item wfs-compare">
+                        <strong>WFS (Web Feature Service)</strong>
+                        <ul>
+                            <li>Menampilkan data vektor</li>
+                            <li>Bisa diklik untuk info</li>
+                            <li>Dapat difilter & query</li>
+                            <li>Warna: <span class="color-box wfs-color"></span> Hijau</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div id="map"></div>
+
+        <!-- Info Panel -->
+        <div class="info-panel" id="infoPanel">
+            <button class="close-btn" id="closeInfo">&times;</button>
+            <h3>📍 Detail Pasar</h3>
+            <div id="infoContent">
+                <p>Klik marker WFS untuk melihat informasi detail pasar.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="[unpkg.com](https://unpkg.com/leaflet@1.9.4/dist/leaflet.js)"></script>
+    
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
