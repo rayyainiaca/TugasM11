@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebGIS Rumah Sakit Sleman – Yogyakarta</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff6e;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --wms-color: #00d4ff;
+    --wfs-color: #ff6b35;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 1000;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px; font-weight: 700; color: #fff;
+  }
+
+  .header-title h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  .header-title p {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .header-badges {
+    display: flex;
+    gap: 8px;
+  }
+
+  .badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .badge-wms { background: rgba(0,212,255,0.15); border: 1px solid var(--wms-color); color: var(--wms-color); }
+  .badge-wfs { background: rgba(255,107,53,0.15); border: 1px solid var(--wfs-color); color: var(--wfs-color); }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 300px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* LAYER TOGGLES */
+  .layer-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .layer-item:hover { background: rgba(255,255,255,0.06); }
+
+  .layer-info { display: flex; align-items: center; gap: 10px; }
+
+  .layer-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .layer-name { font-size: 13px; font-weight: 600; }
+  .layer-type { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+  /* TOGGLE SWITCH */
+  .toggle {
+    width: 36px; height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .toggle.on { background: var(--accent3); }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: transform 0.2s;
+  }
+
+  .toggle.on::after { transform: translateX(16px); }
+
+  /* STATS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* LEGEND */
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .legend-marker {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    flex-shrink: 0;
+  }
+
+  /* FEATURE INFO PANEL */
+  .feature-panel {
+    background: rgba(255,107,53,0.08);
+    border: 1px solid var(--wfs-color);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    min-height: 80px;
+  }
+
+  .feature-panel.empty { color: var(--muted); font-style: italic; }
+
+  .feature-attr { margin-bottom: 6px; }
+  .feature-attr strong { color: var(--accent); font-family: 'Space Mono', monospace; font-size: 10px; }
+  .feature-attr span { display: block; color: var(--text); }
+
+  /* MAP */
+  #map {
+    flex: 1;
+    position: relative;
+  }
+
+  /* STATUS BAR */
+  .statusbar {
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 6px 16px;
+    display: flex;
+    gap: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .status-item span { color: var(--accent); }
+
+  /* LOADING OVERLAY */
+  #loading {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10,14,26,0.85);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  /* POPUP */
+  .leaflet-popup-content-wrapper {
+    background: var(--panel) !important;
+    border: 1px solid var(--wfs-color) !important;
+    border-radius: 8px !important;
+    color: var(--text) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+  }
+
+  .leaflet-popup-tip { background: var(--panel) !important; }
+
+  .popup-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--wfs-color);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .popup-row { display: flex; gap: 8px; margin-bottom: 4px; font-size: 12px; }
+  .popup-key { color: var(--muted); min-width: 60px; }
+  .popup-val { color: var(--text); font-weight: 600; }
+
+  /* SCROLLBAR */
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: var(--bg); }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* WMS INFO */
+  .wms-info-box {
+    background: rgba(0,212,255,0.05);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .wms-info-box strong { color: var(--accent); font-family: 'Space Mono', monospace; }
+
+  .filter-input {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    margin-top: 8px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .filter-input:focus { border-color: var(--accent); }
+
+  .filter-btn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 8px;
+    background: linear-gradient(135deg, var(--accent2), #ff4500);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .filter-btn:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">GIS</div>
+    <div class="header-title">
+      <h1>WEBGIS RUMAH SAKIT SLEMAN</h1>
+      <p>Kabupaten Sleman, D.I. Yogyakarta — Sistem Informasi Geografis</p>
+    </div>
+  </div>
+  <div class="header-badges">
+    <span class="badge badge-wms">WMS</span>
+    <span class="badge badge-wfs">WFS</span>
+  </div>
+</header>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- STATS -->
+    <div class="sidebar-section">
+      <div class="section-title">Statistik</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-number" id="stat-total">–</span>
+          <div class="stat-label">Total RS</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="stat-loaded" style="color:var(--accent3)">–</span>
+          <div class="stat-label">Termuat</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYERS -->
+    <div class="sidebar-section">
+      <div class="section-title">Layer Control</div>
+
+      <div class="layer-item" onclick="toggleLayer('osm')">
+        <div class="layer-info">
+          <div class="layer-dot" style="background:#94a3b8"></div>
+          <div>
+            <div class="layer-name">OSM Basemap</div>
+            <div class="layer-type">WMS · OpenStreetMap</div>
+          </div>
+        </div>
+        <div class="toggle on" id="toggle-osm"></div>
+      </div>
+
+      <div class="layer-item" onclick="toggleLayer('wms')">
+        <div class="layer-info">
+          <div class="layer-dot" style="background:var(--wms-color)"></div>
+          <div>
+            <div class="layer-name">Batas Wilayah</div>
+            <div class="layer-type">WMS · GeoServer Publik</div>
+          </div>
+        </div>
+        <div class="toggle on" id="toggle-wms"></div>
+      </div>
+
+      <div class="layer-item" onclick="toggleLayer('wfs')">
+        <div class="layer-info">
+          <div class="layer-dot" style="background:var(--wfs-color)"></div>
+          <div>
+            <div class="layer-name">Rumah Sakit</div>
+            <div class="layer-type">WFS · Overpass API</div>
+          </div>
+        </div>
+        <div class="toggle on" id="toggle-wfs"></div>
+      </div>
+
+    </div>
+
+    <!-- WMS INFO -->
+    <div class="sidebar-section">
+      <div class="section-title">WMS Info</div>
+      <div class="wms-info-box">
+        <strong>Endpoint:</strong><br>
+        tile.openstreetmap.org<br><br>
+        <strong>Layer aktif:</strong> OSM Standard<br>
+        <strong>Format:</strong> image/png<br>
+        <strong>CRS:</strong> EPSG:3857
+      </div>
+    </div>
+
+    <!-- CQL FILTER -->
+    <div class="sidebar-section">
+      <div class="section-title">Filter WFS (CQL)</div>
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Cari nama rumah sakit:</div>
+      <input class="filter-input" id="filter-input" type="text" placeholder="contoh: RSUP, PKU, Panti...">
+      <button class="filter-btn" onclick="applyFilter()">▶ TERAPKAN FILTER</button>
+      <button class="filter-btn" style="background:linear-gradient(135deg,#334155,#1e293b); margin-top:4px;" onclick="resetFilter()">↺ RESET</button>
+    </div>
+
+    <!-- LEGEND -->
+    <div class="sidebar-section">
+      <div class="section-title">Legenda</div>
+      <div class="legend-item">
+        <div class="legend-marker" style="background:#ff6b35"></div>
+        <span>Rumah Sakit Umum</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-marker" style="background:#a855f7"></div>
+        <span>Rumah Sakit Khusus</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-marker" style="background:#fbbf24"></div>
+        <span>Klinik / Puskesmas</span>
+      </div>
+    </div>
+
+    <!-- FEATURE INFO -->
+    <div class="sidebar-section">
+      <div class="section-title">Info Fitur (WFS Klik)</div>
+      <div class="feature-panel empty" id="feature-panel">
+        Klik marker rumah sakit untuk melihat atribut WFS...
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAP -->
+  <div id="map">
+    <div id="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">MEMUAT DATA WFS...</div>
+    </div>
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="status-item">COORD: <span id="coord-display">–</span></div>
+  <div class="status-item">ZOOM: <span id="zoom-display">–</span></div>
+  <div class="status-item">PROYEKSI: <span>EPSG:4326 / WGS84</span></div>
+  <div class="status-item">WFS: <span id="wfs-status">Memuat...</span></div>
+</div>
+
+<script>
+// ─── MAP INIT ───────────────────────────────────────────────
+const map = L.map('map', {
+  center: [-7.717, 110.355],
+  zoom: 11,
+  zoomControl: true
+});
+
+// ─── WMS LAYER: OSM via tile ────────────────────────────────
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19
+}).addTo(map);
+
+// ─── WMS LAYER 2: ESRI World Gray (untuk kontras) ──────────
+// Menggunakan WMS publik dari ArcGIS sebagai layer batas administratif
+const wmsLayer = L.tileLayer.wms('https://ows.mundialis.de/services/service?', {
+  layers: 'OSM-WMS',
+  format: 'image/png',
+  transparent: true,
+  opacity: 0.0, // dimulai tersembunyi, diatur via toggle
+  attribution: '© Mundialis WMS'
+});
+// Tidak ditambah ke map dulu, kita gunakan sebagai overlay opsional
+
+// Alternatif WMS publik yang reliable
+const adminWMS = L.tileLayer.wms('https://maps.heigit.org/osm-wms/service?', {
+  layers: 'osm_auto:all',
+  format: 'image/png',
+  transparent: true,
+  opacity: 0.3,
+  attribution: 'HeiGIT WMS'
+}).addTo(map);
+
+// ─── DATA RUMAH SAKIT via OVERPASS API (WFS equivalent) ────
+let allHospitals = [];
+let wfsLayer = L.layerGroup().addTo(map);
+let filteredLayer = L.layerGroup().addTo(map);
+
+// Sleman bounding box: -7.55 to -7.85, 110.21 to 110.55
+const overpassQuery = `
+[out:json][timeout:30];
+(
+  node["amenity"="hospital"]({{bbox}});
+  way["amenity"="hospital"]({{bbox}});
+  node["amenity"="clinic"]({{bbox}});
+  node["healthcare"="hospital"]({{bbox}});
+)
+out center;
+`.trim();
+
+const bbox = '-7.85,110.21,-7.55,110.55'; // south,west,north,east
+
+const query = `
+[out:json][timeout:30];
+(
+  node["amenity"="hospital"](-7.85,110.21,-7.55,110.55);
+  way["amenity"="hospital"](-7.85,110.21,-7.55,110.55);
+  node["amenity"="clinic"](-7.85,110.21,-7.55,110.55);
+  node["healthcare"="hospital"](-7.85,110.21,-7.55,110.55);
+);
+out center;
+`;
+
+function getMarkerColor(tags) {
+  if (tags.amenity === 'hospital' || tags.healthcare === 'hospital') {
+    return tags.healthcare_specialty === 'psychiatry' || 
+           tags.name?.toLowerCase().includes('jiwa') ? '#a855f7' : '#ff6b35';
+  }
+  return '#fbbf24';
+}
+
+function getMarkerIcon(tags) {
+  const color = getMarkerColor(tags);
+  const isHospital = tags.amenity === 'hospital' || tags.healthcare === 'hospital';
+  const size = isHospital ? 14 : 10;
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:${size}px; height:${size}px;
+      background:${color};
+      border:2px solid #fff;
+      border-radius:50%;
+      box-shadow: 0 0 8px ${color}88, 0 2px 6px rgba(0,0,0,0.4);
+      cursor:pointer;
+    "></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2]
+  });
+}
+
+function buildPopup(tags, name) {
+  const type = tags.amenity === 'hospital' ? 'Rumah Sakit' : 
+               tags.amenity === 'clinic' ? 'Klinik' : 'Fasilitas Kesehatan';
+  return `
+    <div style="min-width:200px; font-family:'DM Sans',sans-serif;">
+      <div class="popup-title">📍 ${type}</div>
+      <div class="popup-row"><span class="popup-key">Nama</span><span class="popup-val">${name}</span></div>
+      ${tags.operator ? `<div class="popup-row"><span class="popup-key">Operator</span><span class="popup-val">${tags.operator}</span></div>` : ''}
+      ${tags['addr:street'] ? `<div class="popup-row"><span class="popup-key">Jalan</span><span class="popup-val">${tags['addr:street']}</span></div>` : ''}
+      ${tags.phone ? `<div class="popup-row"><span class="popup-key">Telp</span><span class="popup-val">${tags.phone}</span></div>` : ''}
+      ${tags.website ? `<div class="popup-row"><span class="popup-key">Web</span><span class="popup-val"><a href="${tags.website}" target="_blank" style="color:#00d4ff">Buka ↗</a></span></div>` : ''}
+      ${tags.beds ? `<div class="popup-row"><span class="popup-key">Tempat Tidur</span><span class="popup-val">${tags.beds}</span></div>` : ''}
+      <div style="margin-top:8px; padding-top:8px; border-top:1px solid #1e2d45; font-size:10px; color:#64748b; font-family:'Space Mono',monospace;">
+        SOURCE: OVERPASS API (WFS) · OSM DATA
+      </div>
+    </div>
+  `;
+}
+
+function updateFeaturePanel(tags, name) {
+  const panel = document.getElementById('feature-panel');
+  panel.classList.remove('empty');
+  const type = tags.amenity === 'hospital' ? 'Rumah Sakit Umum' :
+               tags.amenity === 'clinic' ? 'Klinik' : 'Fasilitas Kesehatan';
+  panel.innerHTML = `
+    <div class="feature-attr"><strong>NAMA</strong><span>${name}</span></div>
+    <div class="feature-attr"><strong>TIPE</strong><span>${type}</span></div>
+    ${tags.operator ? `<div class="feature-attr"><strong>OPERATOR</strong><span>${tags.operator}</span></div>` : ''}
+    ${tags['addr:street'] ? `<div class="feature-attr"><strong>JALAN</strong><span>${tags['addr:street']}</span></div>` : ''}
+    ${tags.phone ? `<div class="feature-attr"><strong>TELP</strong><span>${tags.phone}</span></div>` : ''}
+  `;
+}
+
+function renderMarkers(hospitals) {
+  wfsLayer.clearLayers();
+  hospitals.forEach(h => {
+    const lat = h.lat || h.center?.lat;
+    const lon = h.lon || h.center?.lon;
+    if (!lat || !lon) return;
+    const name = h.tags.name || h.tags['name:id'] || 'Tanpa Nama';
+    const marker = L.marker([lat, lon], { icon: getMarkerIcon(h.tags) });
+    marker.bindPopup(buildPopup(h.tags, name), { maxWidth: 280 });
+    marker.on('click', () => updateFeaturePanel(h.tags, name));
+    wfsLayer.addLayer(marker);
+  });
+}
+
+// FETCH WFS DATA (Overpass)
+fetch('https://overpass-api.de/api/interpreter', {
+  method: 'POST',
+  body: 'data=' + encodeURIComponent(query)
+})
+.then(r => r.json())
+.then(data => {
+  allHospitals = data.elements || [];
+  const hospitals = allHospitals.filter(e => e.tags?.amenity === 'hospital' || e.tags?.healthcare === 'hospital');
+  const clinics = allHospitals.filter(e => e.tags?.amenity === 'clinic');
+
+  document.getElementById('stat-total').textContent = hospitals.length;
+  document.getElementById('stat-loaded').textContent = allHospitals.length;
+  document.getElementById('wfs-status').textContent = `${allHospitals.length} fitur termuat`;
+
+  renderMarkers(allHospitals);
+  document.getElementById('loading').style.display = 'none';
+})
+.catch(err => {
+  console.error(err);
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('wfs-status').textContent = 'Gagal memuat';
+  // Fallback: data statis beberapa RS Sleman
+  const fallback = [
+    { tags: { name: 'RSUP Dr. Sardjito', amenity: 'hospital', operator: 'Pemerintah' }, lat: -7.7680, lon: 110.3728 },
+    { tags: { name: 'RS PKU Muhammadiyah Gamping', amenity: 'hospital', operator: 'Muhammadiyah' }, lat: -7.7915, lon: 110.3191 },
+    { tags: { name: 'RS Bethesda Lempuyangwangi', amenity: 'hospital' }, lat: -7.7827, lon: 110.3771 },
+    { tags: { name: 'RSJD Grhasia', amenity: 'hospital', healthcare_specialty: 'psychiatry' }, lat: -7.6443, lon: 110.4086 },
+    { tags: { name: 'RS Universitas Gadjah Mada', amenity: 'hospital', operator: 'UGM' }, lat: -7.7710, lon: 110.3770 },
+    { tags: { name: 'RS Panti Nugroho', amenity: 'hospital' }, lat: -7.6342, lon: 110.3987 },
+    { tags: { name: 'RS Bhayangkara Polda DIY', amenity: 'hospital' }, lat: -7.7501, lon: 110.4002 },
+    { tags: { name: 'RSUD Sleman', amenity: 'hospital', operator: 'Pemerintah Daerah' }, lat: -7.7073, lon: 110.3522 },
+  ];
+  allHospitals = fallback.map(f => ({ tags: f.tags, lat: f.lat, lon: f.lon }));
+  document.getElementById('stat-total').textContent = fallback.length;
+  document.getElementById('stat-loaded').textContent = fallback.length;
+  renderMarkers(allHospitals);
+});
+
+// ─── LAYER TOGGLE ───────────────────────────────────────────
+const layerState = { osm: true, wms: true, wfs: true };
+
+function toggleLayer(id) {
+  layerState[id] = !layerState[id];
+  const toggle = document.getElementById('toggle-' + id);
+  toggle.classList.toggle('on', layerState[id]);
+
+  if (id === 'osm') {
+    layerState[id] ? map.addLayer(osmLayer) : map.removeLayer(osmLayer);
+  } else if (id === 'wms') {
+    layerState[id] ? map.addLayer(adminWMS) : map.removeLayer(adminWMS);
+  } else if (id === 'wfs') {
+    layerState[id] ? map.addLayer(wfsLayer) : map.removeLayer(wfsLayer);
+  }
+}
+
+// ─── CQL FILTER ─────────────────────────────────────────────
+function applyFilter() {
+  const keyword = document.getElementById('filter-input').value.toLowerCase().trim();
+  if (!keyword) return;
+  const filtered = allHospitals.filter(h => {
+    const name = (h.tags?.name || '').toLowerCase();
+    return name.includes(keyword);
+  });
+  renderMarkers(filtered);
+  document.getElementById('wfs-status').textContent = `Filter: ${filtered.length} hasil`;
+}
+
+function resetFilter() {
+  document.getElementById('filter-input').value = '';
+  renderMarkers(allHospitals);
+  document.getElementById('wfs-status').textContent = `${allHospitals.length} fitur termuat`;
+}
+
+// ─── STATUS BAR ─────────────────────────────────────────────
+map.on('mousemove', e => {
+  document.getElementById('coord-display').textContent =
+    `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+});
+
+map.on('zoom', () => {
+  document.getElementById('zoom-display').textContent = map.getZoom();
+});
+
+document.getElementById('zoom-display').textContent = map.getZoom();
+
+// ─── GETFEATUREINFO (WMS klik) ───────────────────────────────
+map.on('click', function(e) {
+  // Untuk WMS layer, tampilkan info koordinat
+  const panel = document.getElementById('feature-panel');
+  if (!wfsLayer.getLayers().some(l => {
+    const ll = l.getLatLng?.();
+    return ll && map.distance(e.latlng, ll) < 100;
+  })) {
+    panel.classList.add('empty');
+    panel.innerHTML = `
+      <div class="feature-attr"><strong>KLIK KOORDINAT</strong>
+        <span>Lat: ${e.latlng.lat.toFixed(6)}</span>
+        <span>Lng: ${e.latlng.lng.toFixed(6)}</span>
+      </div>
+      <div style="font-size:10px; color:#64748b; margin-top:8px; font-family:'Space Mono',monospace;">GetFeatureInfo WMS aktif</div>
+    `;
+  }
+});
+</script>
+</body>
+</html>
